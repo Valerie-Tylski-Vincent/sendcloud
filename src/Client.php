@@ -17,6 +17,7 @@ use JouwWeb\Sendcloud\Model\ParcelItem;
 use JouwWeb\Sendcloud\Model\SenderAddress;
 use JouwWeb\Sendcloud\Model\ShippingMethod;
 use JouwWeb\Sendcloud\Model\ShippingProduct;
+use JouwWeb\Sendcloud\Model\Tracking;
 use JouwWeb\Sendcloud\Model\User;
 use JouwWeb\Sendcloud\Model\WebhookEvent;
 use Psr\Http\Message\RequestInterface;
@@ -823,5 +824,29 @@ class Client
         }
 
         return $parcelData;
+    }
+
+    /**
+     * Returns the tracking history of a Parcel.
+     *
+     * @param string $trackingNumber The tracking number of the Parcel.
+     * @return Tracking
+     * @throws SendcloudClientException
+     * @see https://api.sendcloud.dev/docs/sendcloud-public-api/branches/v2/tracking/operations/get-a-tracking
+     */
+    public function getTracking(
+        string $trackingNumber,
+    ): Tracking {
+        try {
+            $response = $this->guzzleClient->get('tracking/'.$trackingNumber);
+            $trackingData = json_decode((string)$response->getBody(), true);
+
+            return Tracking::fromData($trackingData);
+        } catch (TransferException $exception) {
+            throw Utility::parseGuzzleException(
+                $exception,
+                'An error occurred while getting tracking from the Sendcloud API.'
+            );
+        }
     }
 }
