@@ -815,4 +815,67 @@ class ClientTest extends TestCase
 
         $this->assertEquals('The ZPL content', $this->client->getParcelDocument(1, Parcel::DOCUMENT_TYPE_LABEL, Parcel::DOCUMENT_CONTENT_TYPE_ZPL, Parcel::DOCUMENT_DPI_203));
     }
+
+    public function testGetTracking(): void
+    {
+        $this->guzzleClientMock->expects($this->once())->method('request')->willReturn(new Response(
+            200,
+            [],
+            '{
+                "parcel_id": "123456789",
+                "carrier_code": "colissimo",
+                "created_at": "2026-01-14 09:58:57.726684+00:00",
+                "carrier_tracking_url": "https://tracking.eu-central-1-0.sendcloud.sc/forward?carrier=colissimo&code=fake_url",
+                "sendcloud_tracking_url": null,
+                "is_return": false,
+                "is_to_service_point": false,
+                "is_mail_box": false,
+                "expected_delivery_date": "2026-01-15",
+                "statuses": [{
+                        "carrier_update_timestamp": "2026-01-14 09:58:00+00:00",
+                        "parcel_status_history_id": "7654321000",
+                        "parent_status": "announced-uncollected",
+                        "carrier_code": "colissimo",
+                        "carrier_message": "Your parcel will soon be handed over to us! It is being prepared by the sender."
+                    },
+                    {
+                        "carrier_update_timestamp": "2026-01-14 09:58:57.726684+00:00",
+                        "parcel_status_history_id": "7654321408",
+                        "parent_status": "no-label",
+                        "carrier_code": "",
+                        "carrier_message": "No label"
+                    },
+                    {
+                        "carrier_update_timestamp": "2026-01-17 10:30:00+00:00",
+                        "parcel_status_history_id": "7654321253",
+                        "parent_status": "delivered",
+                        "carrier_code": "colissimo",
+                        "carrier_message": "Your parcel has been delivered in your letter box."
+                    }]}'
+        ));
+
+        $tracking = $this->client->getTracking('ABCDEF');
+
+        // Assert all the data is get in Tracking
+        $this->assertEquals('123456789', $tracking->parcelId);
+        $this->assertEquals('colissimo', $tracking->carrierCode);
+        $this->assertEquals(new \DateTimeImmutable('2026-01-14 09:58:57.726684+00:00'), $tracking->createdAt);
+        $this->assertEquals('https://tracking.eu-central-1-0.sendcloud.sc/forward?carrier=colissimo&code=fake_url', $tracking->carrierTrackingUrl);
+        $this->assertEquals('', $tracking->sendcloudTrackingUrl);
+        $this->assertFalse($tracking->isReturn);
+        $this->assertFalse( $tracking->isToServicePoint);
+        $this->assertFalse($tracking->isMailBox);
+        $this->assertEquals(new \DateTimeImmutable('2026-01-15'), $tracking->expectedDeliveryDate);
+        $this->assertCount(3, $tracking->statuses);
+
+        // Assert all the data is get in TrackingStatus
+        $this->assertEquals(new \DateTimeImmutable('2026-01-17 10:30:00+00:00'), $tracking->statuses[2]->carrierUpdateTimestamp);
+        $this->assertEquals('7654321253', $tracking->statuses[2]->parcelStatusHistoryId);
+        $this->assertEquals('delivered', $tracking->statuses[2]->parentStatus);
+        $this->assertEquals('colissimo', $tracking->statuses[2]->carrierCode);
+        $this->assertEquals('Your parcel has been delivered in your letter box.', $tracking->statuses[2]->carrierMessage);
+
+        // Assertion for empty string
+        $this->assertEquals('', $tracking->statuses[1]->carrierCode);
+    }
 }
